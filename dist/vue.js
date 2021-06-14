@@ -5,22 +5,23 @@
 }(this, (function () { 'use strict';
 
   function isFunction(val) {
-    return typeof val === 'function'
+    return typeof val === "function";
   }
 
   function isObject(val) {
-    return typeof val === 'object' && val !== null
+    return typeof val === "object" && val !== null;
   }
 
-  // 检测数据的变化 
+  // 检测数据的变化
   class Observe {
-    constructor(data) { // 对象中的所有属性 进行数据劫持
+    constructor(data) {
+      // 对象中的所有属性 进行数据劫持
       this.walk(data);
     }
 
     walk(data) {
       Object.keys(data).forEach(key => {
-        defineReactive(data,key,data[key]);
+        defineReactive(data, key, data[key]);
       });
     }
   }
@@ -30,7 +31,7 @@
     observe(value); // 本身用户默认值是对象嵌套对象， 需进行递归处理
     Object.defineProperty(data, key, {
       get() {
-        return value
+        return value;
       },
       set(newV) {
         observe(newV); // 如果用户赋值一个新对象，需要将这个对象进行劫持
@@ -39,7 +40,6 @@
     });
   }
 
-
   function observe(data) {
     // 如果是对象才观测
     // 默认最外层的data必须是一个对象
@@ -47,12 +47,12 @@
       return;
     }
 
-    return new Observe(data)
+    return new Observe(data);
   }
 
   /**
    * 状态初始化
-   * @param {*} vm 
+   * @param {*} vm
    */
   function initSate(vm) {
     const opts = vm.$options;
@@ -70,12 +70,27 @@
     // }
   }
 
+  function proxy(vm, source, key) {
+    Object.defineProperty(vm, key, {
+      get() {
+        return vm[source][key];
+      },
+      set(newValue) {
+        vm[source][key] = newValue;
+      }
+    });
+  }
+
   function initData(vm) {
     let data = vm.$options.data;
     // vue2中会将data中所有的数据 进行数据劫持 Object.defineProperty
 
     data = vm._data = isFunction(data) ? data.call(vm) : data;
-    
+
+    for (let key in data) {
+      proxy(vm, "_data", key);
+    }
+
     observe(data);
   }
 
