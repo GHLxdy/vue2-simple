@@ -12,13 +12,53 @@
     return typeof val === "object" && val !== null;
   }
 
+  let oldArrayPrototype = Array.prototype;
+  let arrayMethods = Object.create(Array.prototype);
+
+  let methods = ["push", "shift", "unshift", "pop", "pop", "sort", "splice"];
+
+  methods.forEach(method => {
+    // 对以上7个方法进行重写
+    arrayMethods[method] = function (...args) {
+      oldArrayPrototype[method].call(this, ...args);
+      const ob = this.__ob__;
+      let inserted;
+      switch (method) {
+        case "push":
+        case "unshift":
+          inserted = args;
+          break;
+        case "splice":
+          inserted = args.slice(2);
+      }
+      // 如果有新增的内容需要进行继续的劫持
+      if (inserted) ob.observeArray(inserted);
+    };
+  });
+
   // 检测数据的变化
   class Observe {
     constructor(data) {
-      // 对象中的所有属性 进行数据劫持
-      this.walk(data);
+      data.__ob__ = this;
+      Object.defineProperty(data, "__ob__", {
+        value: this,
+        enumerable: false // 不可枚举
+      });
+      if (Array.isArray(data)) {
+        // 数组劫持
+        // 对数组中的方法进行 重写（使用高阶函数/切片）
+        data.__proto__ = arrayMethods;
+        this.observeArray(data);
+      } else {
+        this.walk(data); // 对象数据劫持
+      }
     }
-
+    // 对数组中的数组 和数组中的对象 进行劫持
+    observeArray(data) {
+      data.forEach(item => {
+        observe(item);
+      });
+    }
     walk(data) {
       Object.keys(data).forEach(key => {
         defineReactive(data, key, data[key]);

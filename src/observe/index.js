@@ -1,12 +1,29 @@
 import { isObject } from "../utils";
+import { arrayMethods } from "./array";
 
 // 检测数据的变化
 class Observe {
   constructor(data) {
-    // 对象中的所有属性 进行数据劫持
-    this.walk(data);
+    data.__ob__ = this;
+    Object.defineProperty(data, "__ob__", {
+      value: this,
+      enumerable: false // 不可枚举
+    });
+    if (Array.isArray(data)) {
+      // 数组劫持
+      // 对数组中的方法进行 重写（使用高阶函数/切片）
+      data.__proto__ = arrayMethods;
+      this.observeArray(data);
+    } else {
+      this.walk(data); // 对象数据劫持
+    }
   }
-
+  // 对数组中的数组 和数组中的对象 进行劫持
+  observeArray(data) {
+    data.forEach(item => {
+      observe(item);
+    });
+  }
   walk(data) {
     Object.keys(data).forEach(key => {
       defineReactive(data, key, data[key]);
