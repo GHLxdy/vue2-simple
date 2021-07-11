@@ -9,7 +9,15 @@
 </head>
 
 <body>
-  <div id="app">{{name}}</div>
+  <div id="app">
+    <ul>
+      <li>{{name}}</li>
+      <li>{{name}}</li>
+      <li>{{name}}</li>
+      <li>{{name}}</li>
+      <li>{{name}}</li>
+    </ul>
+  </div>
   <script src="./dist/vue.js"></script>
   <script>
     const vm = new Vue({
@@ -20,7 +28,6 @@
         }
       }
     })
-    console.log(vm)
   </script>
 </body>
 
