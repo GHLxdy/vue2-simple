@@ -12,17 +12,48 @@
     /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/; // a=b  a="b"  a='b'
   const startTagClose = /^\s*(\/?)>/; //     />   <div/>
 
-  function start(tagName, attributes) {
-    console.log(tagName, attributes);
+  //
+  function createAstElement(tagName, attrs) {
+    return {
+      tag: tagName,
+      type: 1,
+      children: [],
+      attrs
+    }
   }
 
+  let root = null;
+  let stack = [];
+  function start(tagName, attributes) {
+    let parent = stack[stack.length - 1];
+    let element = createAstElement(tagName, attributes);
+    if (!root) {
+      root = element;
+    }
+    if (parent) {
+      element.parent = parent;
+      parent.children.push(element);
+    }
+    stack.push(element);
+  }
   function end(tagName) {
-    console.log(tagName);
+    let last = stack.pop();
+    if (last.tag !== tagName) {
+      throw new Error("标签有误")
+    }
   }
 
   function chars(text) {
-    console.log(text);
+    text = text.replace(/\s/g, "");
+    let parent = stack[stack.length - 1];
+    if (text) {
+      parent.children.push({
+        type: 3,
+        text
+      });
+    }
   }
+
   function parseHTML(html) {
     function advance(len) {
       html = html.substring(len);
@@ -81,6 +112,8 @@
         advance(text.length);
       }
     }
+    console.log(root);
+    return root
   }
 
   // 将html字符串解析成dom树
