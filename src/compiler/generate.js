@@ -15,7 +15,7 @@ function genProps(attrs) {
 
     str += `${attr.name}:${JSON.stringify(attr.value)},`
   }
-  return `${str.slice(0, -1)}`
+  return `{${str.slice(0, -1)}}`
 }
 
 function gen(el) {
@@ -62,8 +62,7 @@ export function generate(el) {
   // 遍历树 将树拼接成字符串
   let children = genChildren(el)
   let code = `_c('${el.tag}',${
-    el.attrs.length ? genProps(el.attrs) : undefined
+    el.attrs.length ? genProps(el.attrs) : "undefined"
   }${children ? `,${children}` : ""})`
-
   return code
 }
