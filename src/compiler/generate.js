@@ -37,7 +37,7 @@ function gen(el) {
         if (index > lastIndex) {
           tokens.push(JSON.stringify(text.slice(lastIndex, index)))
         }
-        tokens.push(match[1].trim())
+        tokens.push(`_s(${match[1].trim()})`) // JSON.stringify()
         lastIndex = index + match[0].length
       }
       if (lastIndex < text.length) {

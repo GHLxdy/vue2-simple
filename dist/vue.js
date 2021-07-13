@@ -21,7 +21,7 @@
 
       str += `${attr.name}:${JSON.stringify(attr.value)},`;
     }
-    return `${str.slice(0, -1)}`
+    return `{${str.slice(0, -1)}}`
   }
 
   function gen(el) {
@@ -43,7 +43,7 @@
           if (index > lastIndex) {
             tokens.push(JSON.stringify(text.slice(lastIndex, index)));
           }
-          tokens.push(match[1].trim());
+          tokens.push(`_s(${match[1].trim()})`); // JSON.stringify()
           lastIndex = index + match[0].length;
         }
         if (lastIndex < text.length) {
@@ -68,9 +68,8 @@
     // 遍历树 将树拼接成字符串
     let children = genChildren(el);
     let code = `_c('${el.tag}',${
-    el.attrs.length ? genProps(el.attrs) : undefined
+    el.attrs.length ? genProps(el.attrs) : "undefined"
   }${children ? `,${children}` : ""})`;
-
     return code
   }
 
@@ -115,7 +114,7 @@
   }
 
   function chars(text) {
-    text = text.replace(/\s/g, "");
+    text = text.replace(/\s+/g, "");
     let parent = stack[stack.length - 1];
     if (text) {
       parent.children.push({
@@ -204,9 +203,26 @@
     // 生成代码
     let code = generate(root);
 
-    console.log(code);
-    // let render = new Function(`with(this){return ${code}}`) // code 中会用到数据 数据在vm上
-    // return render
+    // console.log(code)
+    let render = new Function(`with(this){return ${code}}`); // code 中会用到数据 数据在vm上
+    return render
+  }
+
+  function lifecycleMixin(Vue) {
+    Vue.prototype._update = function (vnode) {
+      console.log("_update", vnode);
+    };
+  }
+
+  function mountComponent(vm, el) {
+    // 更新函数 数据变化后 会再次调用此函数
+    let updateComponent = () => {
+      // 调用render函数，生成虚拟dom
+      vm._update(vm._render()); // 后续更新可以调用 updateComponent 方法
+      // 用虚拟dom生成真实dom
+    };
+
+    updateComponent();
   }
 
   function isFunction(val) {
@@ -370,6 +386,49 @@
           options.render = render;
         }
       }
+
+      mountComponent(vm);
+    };
+  }
+
+  function createElement(vm, tag, data = {}, ...children) {
+    return vnode(vm, tag, data, data.key, children, undefined)
+  }
+
+  function createTextElement(vm, text) {
+    return vnode(vm, undefined, undefined, undefined, undefined, text)
+  }
+
+  function vnode(vm, tag, data, key, children, text) {
+    return {
+      vm,
+      tag,
+      data,
+      key,
+      children,
+      text
+      // .....
+    }
+  }
+
+  function renderMixin(Vue) {
+    // createElement
+    Vue.prototype._c = function () {
+      return createElement(this, ...arguments)
+    };
+    // createTextElement
+    Vue.prototype._v = function (text) {
+      return createTextElement(text)
+    };
+    Vue.prototype._s = function (val) {
+      if (typeof val === "object") return JSON.stringify(val)
+      return val
+    };
+    Vue.prototype._render = function () {
+      const vm = this;
+      let render = vm.$options.render;
+      let vnode = render.call(vm);
+      return vnode
     };
   }
 
@@ -378,6 +437,8 @@
   }
   // 扩展原型
   initMixin(Vue);
+  renderMixin(Vue); // 扩展 _render 方法
+  lifecycleMixin(Vue); // 控制 _update 方法
 
   return Vue;
 

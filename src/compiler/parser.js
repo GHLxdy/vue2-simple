@@ -39,7 +39,7 @@ function end(tagName) {
 }
 
 function chars(text) {
-  text = text.replace(/\s/g, "")
+  text = text.replace(/\s+/g, "")
   let parent = stack[stack.length - 1]
   if (text) {
     parent.children.push({
