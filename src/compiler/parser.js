@@ -5,9 +5,9 @@ const endTag = new RegExp(`^<\\/${qnameCapture}[^>]*>`) // 匹配闭合标签的
 const attribute =
   /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/ // a=b  a="b"  a='b'
 const startTagClose = /^\s*(\/?)>/ //     />   <div/>
-const defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g // {{aaaaa}}
 
-//
+// html字符串解析成 对应的脚本来触发 tokens  <div id="app"> {{name}}</div>
+// 将解析后的结果 组装成一个树结构  栈
 function createAstElement(tagName, attrs) {
   return {
     tag: tagName,
@@ -107,6 +107,5 @@ export function parseHTML(html) {
       advance(text.length)
     }
   }
-  console.log(root)
   return root
 }

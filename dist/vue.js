@@ -4,6 +4,76 @@
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.Vue = factory());
 }(this, (function () { 'use strict';
 
+  const defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g; // {{aaaaa}}
+
+  function genProps(attrs) {
+    // [{name:'xxx',value:'xxx'},{name:'xxx',value:'xxx'}]}
+    let str = "";
+    for (let i = 0; i < attrs.length; i++) {
+      let attr = attrs[i];
+      if (attr.name === "style") {
+        let styleObj = {};
+        attr.value.replace(/([^;:]+)\:([^;:]+)/g, function () {
+          styleObj[arguments[1]] = arguments[2];
+        });
+        attr.value = styleObj;
+      }
+
+      str += `${attr.name}:${JSON.stringify(attr.value)},`;
+    }
+    return `${str.slice(0, -1)}`
+  }
+
+  function gen(el) {
+    if (el.type == 1) {
+      // 如果是元素，则递归
+      return generate(el)
+    } else {
+      let text = el.text;
+      if (!defaultTagRE.test(text)) {
+        return `_v("${text}")`
+      } else {
+        // hello {{ name }} world => 'hello' + arr + 'world'
+        let tokens = [];
+        let match;
+        let lastIndex = 0;
+        defaultTagRE.lastIndex = 0; // 和css-loader原理一样
+        while ((match = defaultTagRE.exec(text))) {
+          let index = match.index;
+          if (index > lastIndex) {
+            tokens.push(JSON.stringify(text.slice(lastIndex, index)));
+          }
+          tokens.push(match[1].trim());
+          lastIndex = index + match[0].length;
+        }
+        if (lastIndex < text.length) {
+          tokens.push(JSON.stringify(text.slice(lastIndex)));
+        }
+        return `_v(${tokens.join("+")})`
+      }
+    }
+  }
+
+  function genChildren(el) {
+    let children = el.children; // 获取儿子
+    if (children) {
+      return children.map(c => gen(c)).join(",")
+    }
+    return false
+  }
+
+  function generate(el) {
+    // _c('div',{id:'app',a:1},_c('span',{},'world'),_v())
+
+    // 遍历树 将树拼接成字符串
+    let children = genChildren(el);
+    let code = `_c('${el.tag}',${
+    el.attrs.length ? genProps(el.attrs) : undefined
+  }${children ? `,${children}` : ""})`;
+
+    return code
+  }
+
   const ncname = `[a-zA-Z_][\\-\\.0-9_a-zA-Z]*`; // 标签名
   const qnameCapture = `((?:${ncname}\\:)?${ncname})`; //  用来获取的标签名的 match后的索引为1的
   const startTagOpen = new RegExp(`^<${qnameCapture}`); // 匹配开始标签的
@@ -12,7 +82,8 @@
     /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/; // a=b  a="b"  a='b'
   const startTagClose = /^\s*(\/?)>/; //     />   <div/>
 
-  //
+  // html字符串解析成 对应的脚本来触发 tokens  <div id="app"> {{name}}</div>
+  // 将解析后的结果 组装成一个树结构  栈
   function createAstElement(tagName, attrs) {
     return {
       tag: tagName,
@@ -112,13 +183,30 @@
         advance(text.length);
       }
     }
-    console.log(root);
     return root
   }
 
+  // 看一下用户是否传入了 , 没传入可能传入的是 template, template如果也没有传递
+  // 将我们的html =》 词法解析  （开始标签 ， 结束标签，属性，文本）
+  // => ast语法树 用来描述html语法的 stack=[]
+
+  // codegen  <div>hello</div>  =>   _c('div',{},'hello')  => 让字符串执行
+  // 字符串如果转成代码 eval 好性能 会有作用域问题
+
+  // 模板引擎 new Function + with 来实现
+
   // 将html字符串解析成dom树
+
   function compileToFunction(template) {
-    parseHTML(template);
+    let root = parseHTML(template);
+    // html=> ast（只能描述语法 语法不存在的属性无法描述） => render函数 + (with + new Function) => 虚拟dom （增加额外的属性） => 生成真实dom
+
+    // 生成代码
+    let code = generate(root);
+
+    console.log(code);
+    // let render = new Function(`with(this){return ${code}}`) // code 中会用到数据 数据在vm上
+    // return render
   }
 
   function isFunction(val) {
