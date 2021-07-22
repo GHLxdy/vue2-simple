@@ -208,9 +208,36 @@
     return render
   }
 
+  function pacth(oldVnode, vnode) {
+    if (oldVnode.nodeType == 1) {
+      // 用vnode 来生成真实dom 替换原本的dom元素
+
+      const parentElm = oldVnode.parentNode;
+      let elm = createElm(vnode); // 根据虚拟节点 创建元素
+      parentElm.insertBefore(elm, oldVnode.nextSibing);
+
+      parentElm.removeChild(oldVnode);
+    }
+  }
+
+  function createElm(vnode) {
+    const { tag, data, children, text, vm } = vnode;
+    if (typeof vnode.tag === "string") {
+      vnode.el = document.createElement(tag); // 虚拟节点会有一个el属性 对应真实节点
+      children.forEach(child => {
+        vnode.el.appendChild(createElm(child));
+      });
+    } else {
+      vnode.el = document.createTextNode(text);
+    }
+    return vnode.el
+  }
+
   function lifecycleMixin(Vue) {
     Vue.prototype._update = function (vnode) {
-      console.log("_update", vnode);
+      // console.log("_update", vnode)
+      const vm = this;
+      pacth(vm.$el, vnode);
     };
   }
 
@@ -374,7 +401,7 @@
       const vm = this;
       const options = vm.$options;
       el = document.querySelector(el);
-
+      vm.$el = el;
       // 模板=>渲染函数=>虚拟dom vnode => diff算法 => 更新虚拟dom  => 产生真是节点，更新
       if (!options.render) {
         // 没有render用template
@@ -418,7 +445,7 @@
     };
     // createTextElement
     Vue.prototype._v = function (text) {
-      return createTextElement(text)
+      return createTextElement(this, text)
     };
     Vue.prototype._s = function (val) {
       if (typeof val === "object") return JSON.stringify(val)

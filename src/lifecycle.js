@@ -1,6 +1,10 @@
+import { pacth } from "./vdom/patch"
+
 export function lifecycleMixin(Vue) {
   Vue.prototype._update = function (vnode) {
-    console.log("_update", vnode)
+    // console.log("_update", vnode)
+    const vm = this
+    pacth(vm.$el, vnode)
   }
 }
 
