@@ -1,12 +1,14 @@
 import Watcher from "./observe/watcher"
+import { nextTick } from "./utils"
 import { pacth } from "./vdom/patch"
 
 export function lifecycleMixin(Vue) {
   Vue.prototype._update = function (vnode) {
     // console.log("_update", vnode)
     const vm = this
-    pacth(vm.$el, vnode)
+    vm.$el = pacth(vm.$el, vnode)
   }
+  Vue.prototype.$nextTick = nextTick
 }
 
 // 后续每个组件渲染时都会 有一个Watcher

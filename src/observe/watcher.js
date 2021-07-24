@@ -1,4 +1,5 @@
 import { popTarget, pushTarget } from "./dep"
+import { queuewatcher } from "./scheduler"
 
 let id = 0
 class Watcher {
@@ -25,12 +26,17 @@ class Watcher {
     popTarget() // Dep.target = null: 如果Dep.target有值说明这个变量在模板中使用了
   }
   update() {
-    console.log('更新视图')
+    // 每次更新时 this
+    // 多次调用update 先将watcher缓存 等一会一起执行
+    queuewatcher(this)
+  }
+  run() {
+    console.log('更新')
     this.get()
   }
   addDep(dep) {
     const id = dep.id
-    if (this.depsId.has(id)) {
+    if (!this.depsId.has(id)) {
       this.depsId.add(dep.id)
       this.deps.push(dep)
       dep.addSub(this)

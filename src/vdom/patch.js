@@ -1,12 +1,12 @@
 export function pacth(oldVnode, vnode) {
   if (oldVnode.nodeType == 1) {
     // 用vnode 来生成真实dom 替换原本的dom元素
-
     const parentElm = oldVnode.parentNode
     let elm = createElm(vnode) // 根据虚拟节点 创建元素
     parentElm.insertBefore(elm, oldVnode.nextSibing)
 
     parentElm.removeChild(oldVnode)
+    return elm
   }
 }
 

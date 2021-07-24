@@ -45,7 +45,6 @@ function defineReactive(data, key, value) {
       return value
     },
     set(newV) {
-      // 
       if (newV !== value) {
         observe(newV) // 如果用户赋值一个新对象，需要将这个对象进行劫持
         value = newV

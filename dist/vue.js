@@ -236,6 +236,83 @@
     Dep.target = null;
   }
 
+  function isFunction(val) {
+    return typeof val === "function";
+  }
+
+  function isObject(val) {
+    return typeof val === "object" && val !== null;
+  }
+
+  const callbacks = [];
+  function flushCallback() {
+    callbacks.forEach(cb => cb());
+    waiting = false;
+  }
+  let waiting = false;
+  function timer(flushCallbacks) {
+    let timerFn = () => { };
+    if (Promise) {
+      timerFn = () => {
+        Promise.resolve().then(flushCallbacks);
+      };
+    } else if (MutationObserver) {
+      let textNode = document.createTextNode(1);
+      let observe = new MutationObserver(flushCallbacks);
+      observe.observe(textNode, {
+        characterData: true
+      });
+      timerFn = () => {
+        textNode.textContent = 3;
+      };
+      // 微任务
+    } else if (setImmediate) {
+      timerFn = () => {
+        setImmediate(flushCallbacks);
+      };
+    } else {
+      timerFn = () => {
+        setTimeout(flushCallbacks);
+      };
+    }
+    timerFn();
+  }
+  // 微任务是在页面渲染前执行 我取的是内存中的dom，不关心你渲染完毕没有
+  function nextTick(cb) {
+    callbacks.push(cb);
+    if (!waiting) {
+      // vue2 中考虑了兼容问题 vue3不在考虑兼容问题，所以vue直接使用Promise.resolve()
+      timer(flushCallback);
+      waiting = true;
+    }
+  }
+
+  let queue = [];
+  let has = {}; // 做列表维护 存放了那些watcher
+
+  function flushScheduleQueue() {
+    for (let i = 0;i < queue.length;i++) {
+      queue[i].run();
+    }
+    queue = [];
+    has = {};
+    pending = false;
+  }
+
+  let pending = false;
+  function queuewatcher(watcher) {
+    const id = watcher.id;
+    if (has[id] == null) {
+      has[id] = id;
+      queue.push(watcher);
+      // 开启一次更新 批处理（防抖）
+      if (!pending) {
+        nextTick(flushScheduleQueue);
+        pending = true;
+      }
+    }
+  }
+
   let id = 0;
   class Watcher {
     constructor(vm, exprOrFn, cb, options) {
@@ -261,12 +338,17 @@
       popTarget(); // Dep.target = null: 如果Dep.target有值说明这个变量在模板中使用了
     }
     update() {
-      console.log('更新视图');
+      // 每次更新时 this
+      // 多次调用update 先将watcher缓存 等一会一起执行
+      queuewatcher(this);
+    }
+    run() {
+      console.log('更新');
       this.get();
     }
     addDep(dep) {
       const id = dep.id;
-      if (this.depsId.has(id)) {
+      if (!this.depsId.has(id)) {
         this.depsId.add(dep.id);
         this.deps.push(dep);
         dep.addSub(this);
@@ -277,12 +359,12 @@
   function pacth(oldVnode, vnode) {
     if (oldVnode.nodeType == 1) {
       // 用vnode 来生成真实dom 替换原本的dom元素
-
       const parentElm = oldVnode.parentNode;
       let elm = createElm(vnode); // 根据虚拟节点 创建元素
       parentElm.insertBefore(elm, oldVnode.nextSibing);
 
       parentElm.removeChild(oldVnode);
+      return elm
     }
   }
 
@@ -303,8 +385,9 @@
     Vue.prototype._update = function (vnode) {
       // console.log("_update", vnode)
       const vm = this;
-      pacth(vm.$el, vnode);
+      vm.$el = pacth(vm.$el, vnode);
     };
+    Vue.prototype.$nextTick = nextTick;
   }
 
   // 后续每个组件渲染时都会 有一个Watcher
@@ -325,14 +408,6 @@
       },
       true
     ); // 他是一个渲染watcher 后续有其他的watcher
-  }
-
-  function isFunction(val) {
-    return typeof val === "function";
-  }
-
-  function isObject(val) {
-    return typeof val === "object" && val !== null;
   }
 
   let oldArrayPrototype = Array.prototype;
@@ -402,7 +477,6 @@
         return value
       },
       set(newV) {
-        // 
         if (newV !== value) {
           observe(newV); // 如果用户赋值一个新对象，需要将这个对象进行劫持
           value = newV;
