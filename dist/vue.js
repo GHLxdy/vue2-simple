@@ -208,6 +208,72 @@
     return render
   }
 
+  let id$1 = 0;
+  class Dep { // 每个属性分配一个dep,dep可以存放watcher,watcher中还要存放这个dep
+    constructor() {
+      this.id = id$1++;
+      this.subs = [];
+    }
+    depend() {
+      // Dep.target dep里要存放这个watcher
+      // watcher 要存放dep 多对多的关系
+      if (Dep.target) {
+        Dep.target.addDep(this);
+      }
+    }
+    addSub(watcher) {
+      this.subs.push(watcher);
+    }
+    notify() {
+      this.subs.forEach(watcher => watcher.update());
+    }
+  }
+  Dep.target = null;
+  function pushTarget(watcher) {
+    Dep.target = watcher;
+  }
+  function popTarget() {
+    Dep.target = null;
+  }
+
+  let id = 0;
+  class Watcher {
+    constructor(vm, exprOrFn, cb, options) {
+      this.vm = vm;
+      this.exprOrFn = exprOrFn;
+      this.cb = cb;
+      this.options = options;
+      this.id = id++;
+      this.depsId = new Set();
+      this.deps = [];
+      // 默认应该让 exprOrFn执行
+
+      this.getter = exprOrFn;
+
+      this.get(); // 默认初始化 要取值
+    }
+    get() { // 当数据更新时 可以重新调用getter方法
+
+      // defineProperty.get，每个属性都可以收集自己的watcher
+      // 一个属性可以对应多个watcher,同时一个watcher可以对应多个属性
+      pushTarget(this); // Dep.target = watcher
+      this.getter();
+      popTarget(); // Dep.target = null: 如果Dep.target有值说明这个变量在模板中使用了
+    }
+    update() {
+      console.log('更新视图');
+      this.get();
+    }
+    addDep(dep) {
+      const id = dep.id;
+      if (this.depsId.has(id)) {
+        this.depsId.add(dep.id);
+        this.deps.push(dep);
+        dep.addSub(this);
+      }
+    }
+  }
+
   function pacth(oldVnode, vnode) {
     if (oldVnode.nodeType == 1) {
       // 用vnode 来生成真实dom 替换原本的dom元素
@@ -241,6 +307,7 @@
     };
   }
 
+  // 后续每个组件渲染时都会 有一个Watcher
   function mountComponent(vm, el) {
     // 更新函数 数据变化后 会再次调用此函数
     let updateComponent = () => {
@@ -248,8 +315,16 @@
       vm._update(vm._render()); // 后续更新可以调用 updateComponent 方法
       // 用虚拟dom生成真实dom
     };
-
-    updateComponent();
+    // 观察者模式： 属性时”被观察者“ 刷新页面：”观察者“
+    // updateComponent()
+    new Watcher(
+      vm,
+      updateComponent,
+      () => {
+        console.log("更新视图");
+      },
+      true
+    ); // 他是一个渲染watcher 后续有其他的watcher
   }
 
   function isFunction(val) {
@@ -317,13 +392,22 @@
   // vue2 会将对象进行遍历 将每个属性 用defineProperty 重新定义 =》 性能差
   function defineReactive(data, key, value) {
     observe(value); // 本身用户默认值是对象嵌套对象， 需进行递归处理
+    let dep = new Dep(); // 每个属性都一个dep属性
     Object.defineProperty(data, key, {
       get() {
-        return value;
+        // 取值时watcher和Depd对应起来
+        if (Dep.target) { // 此值是在模板中使用了
+          dep.depend(); // 让dep记住watcher
+        }
+        return value
       },
       set(newV) {
-        observe(newV); // 如果用户赋值一个新对象，需要将这个对象进行劫持
-        value = newV;
+        // 
+        if (newV !== value) {
+          observe(newV); // 如果用户赋值一个新对象，需要将这个对象进行劫持
+          value = newV;
+          dep.notify(); // 告诉当前属性存放的watcher执行
+        }
       }
     });
   }
