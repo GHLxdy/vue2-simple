@@ -38,4 +38,11 @@ class Watcher {
   }
 }
 
+// watcher 和 Dep
+// 渲染页面时，会将当前的watcher放到Dep类上
+// 在vue中页面渲染 时使用 的属性，需要进行依赖收集，收集对象的渲染watcher
+// 取值时，给每一个属性都加了个dep属性，用于存储这个渲染watcher (同一个watcher对应多个dep)
+// 每个属性可能对应多个视图（多个视图肯定对应多个watcher）一个属性对应多个watcher
+// dep.depend()=>通知dep存放watcher=>Dep.target.addDep=>通过watcher存放dep
+// 双向存储
 export default Watcher
