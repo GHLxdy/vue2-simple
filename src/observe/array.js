@@ -21,5 +21,8 @@ methods.forEach(method => {
     }
     // 如果有新增的内容需要进行继续的劫持
     if (inserted) ob.observeArray(inserted);
+
+    // 数组的observer.dep 属性
+    ob.dep.notify()
   };
 });
